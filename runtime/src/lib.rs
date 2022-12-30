@@ -26,7 +26,9 @@ use sp_version::RuntimeVersion;
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime, parameter_types,
-	traits::{ConstU128, ConstU32, ConstU8, KeyOwnerProofSystem, Randomness, StorageInfo},
+	traits::{
+		ConstU128, ConstU32, ConstU64, ConstU8, KeyOwnerProofSystem, Randomness, StorageInfo,
+	},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		IdentityFee, Weight,
@@ -41,14 +43,7 @@ use pallet_transaction_payment::CurrencyAdapter;
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
-/// Import the template pallet.
-pub use pallet_template;
-
-///Import the dolfhin pallet
-pub use pallet_dolfhin;
-
-///Import the pallet-dolfhinclub
-pub use pallet_dolfhinclub;
+pub use pallet_club;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -138,8 +133,8 @@ pub fn native_version() -> NativeVersion {
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 
 parameter_types! {
-	pub const Version: RuntimeVersion = VERSION;
 	pub const BlockHashCount: BlockNumber = 2400;
+	pub const Version: RuntimeVersion = VERSION;
 	/// We allow for 2 seconds of compute with a 6 second average block time.
 	pub BlockWeights: frame_system::limits::BlockWeights = frame_system::limits::BlockWeights
 		::with_sensible_defaults(2 * WEIGHT_PER_SECOND, NORMAL_DISPATCH_RATIO);
@@ -230,18 +225,11 @@ impl pallet_grandpa::Config for Runtime {
 	type MaxAuthorities = ConstU32<32>;
 }
 
-parameter_types! {
-	pub const MinimumPeriod: u64 = SLOT_DURATION / 2;
-}
-
-parameter_types! {
-	pub const  MAX: u32 = 6;
-}
 impl pallet_timestamp::Config for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.
 	type Moment = u64;
 	type OnTimestampSet = Aura;
-	type MinimumPeriod = MinimumPeriod;
+	type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
 	type WeightInfo = ();
 }
 
@@ -260,6 +248,7 @@ impl pallet_balances::Config for Runtime {
 }
 
 impl pallet_transaction_payment::Config for Runtime {
+	type Event = Event;
 	type OnChargeTransaction = CurrencyAdapter<Balances, ()>;
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = IdentityFee<Balance>;
@@ -272,19 +261,14 @@ impl pallet_sudo::Config for Runtime {
 	type Call = Call;
 }
 
-/// Configure the pallet-template in pallets/template.
-impl pallet_template::Config for Runtime {
-	type Event = Event;
-}
-/// Configure the pallet_dolfhin in pallets/tern.
-impl pallet_dolfhin::Config for Runtime {
-	type Event = Event;
+parameter_types! {
+	pub const MaxLength: u32 = 50;
 }
 
-///Configure the pallet_dolfhinclub in pallets/dolfhinclub
-impl pallet_dolfhinclub::Config for Runtime {
+impl pallet_club::Config for Runtime {
 	type Event = Event;
-	type MAX = MAX;
+	type WeightInfo = pallet_club::weights::SubstrateWeight<Runtime>;
+	type MaxLength = MaxLength;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -302,10 +286,7 @@ construct_runtime!(
 		Balances: pallet_balances,
 		TransactionPayment: pallet_transaction_payment,
 		Sudo: pallet_sudo,
-		// Include the custom logic from the pallet-template in the runtime.
-		TemplateModule: pallet_template,
-		TemplateDolfhinModule: pallet_dolfhin,
-		TemplateDolfhinClub : pallet_dolfhinclub,
+		ClubModule: pallet_club,
 	}
 );
 
@@ -350,9 +331,7 @@ mod benches {
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
-		[pallet_template, TemplateModule]
-		[pallet_dolfhin, TemplateDolfhinModule]
-		[pallet_dolfhinclub, TemplateDolfhinClub]
+		[pallet_club, ClubModule]
 	);
 }
 
@@ -503,7 +482,7 @@ impl_runtime_apis! {
 
 			let storage_info = AllPalletsWithSystem::storage_info();
 
-			return (list, storage_info)
+			(list, storage_info)
 		}
 
 		fn dispatch_benchmark(

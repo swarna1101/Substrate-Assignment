@@ -1,8 +1,9 @@
-use crate as pallet_template;
+use crate as pallet_club;
 use frame_support::traits::{ConstU16, ConstU64};
 use frame_system as system;
 use sp_core::H256;
 use sp_runtime::{
+	parameter_types,
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
 };
@@ -18,7 +19,7 @@ frame_support::construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		TemplateModule: pallet_template::{Pallet, Call, Storage, Event<T>},
+		ClubModule: pallet_club::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
@@ -49,11 +50,20 @@ impl system::Config for Test {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
-impl pallet_template::Config for Test {
+parameter_types! {
+	pub const MaxLength: u32 = 50;
+}
+
+impl pallet_club::Config for Test {
 	type Event = Event;
+	type WeightInfo = ();
+	type MaxLength = MaxLength;
 }
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
+	let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+	let mut ext = sp_io::TestExternalities::new(storage);
+	ext.execute_with(|| System::set_block_number(1));
+	ext
 }
